@@ -237,6 +237,104 @@ def parse_json(text, cfg):
     return items
 
 
+# ===================== 选股通（xuangutong.com.cn）专用解析 =====================
+# 列表接口只给标题/栏目/时间；相关个股在每条的详情接口里，涨跌幅要另查行情接口。
+def format_stock_line(stocks, quotes, max_n):
+    """把 RelatedStocks 拼成一行："名称 代码 ±x.xx%"；超过 max_n 只时省略并注明总数。
+    行情缺失时只显示名称与代码，不留空位。"""
+    if not stocks:
+        return "（本文未标注个股）"
+    parts = []
+    for s in stocks[:max_n]:
+        name = (s.get("Name") or "").strip()
+        symbol = (s.get("Symbol") or "").strip()
+        rate = quotes.get(symbol)
+        if rate is None:
+            parts.append(("%s %s" % (name, symbol)).strip())
+        else:
+            parts.append(("%s %s %+.2f%%" % (name, symbol, rate)).strip())
+    line = "、".join(parts)
+    if len(stocks) > max_n:
+        line += " 等 %d 只" % len(stocks)
+    return line
+
+
+def fetch_quotes(symbols, cfg):
+    """批量取涨跌幅（px_change_rate，单位 %），返回 {代码: 涨跌幅}。
+    一次请求查全部代码；未配置 market_url 或请求失败时返回空 dict，个股降级为只显示名称。"""
+    url_tpl = cfg.get("market_url", "")
+    uniq = list(dict.fromkeys(s for s in symbols if s))
+    if not url_tpl or not uniq:
+        return {}
+    data = fetch_json(url_tpl.replace("{codes}", ",".join(uniq)), cfg, "行情")
+    if not isinstance(data, dict):
+        return {}
+    payload = data.get("data") or {}
+    fields = payload.get("fields") or []
+    if "px_change_rate" not in fields:
+        return {}
+    idx = fields.index("px_change_rate")
+    quotes = {}
+    for symbol, row in (payload.get("snapshot") or {}).items():
+        if isinstance(row, list) and idx < len(row):
+            try:
+                quotes[symbol] = float(row[idx])
+            except (TypeError, ValueError):
+                continue
+    return quotes
+
+
+def parse_xuangutong(text, cfg):
+    """选股通「精选」专用解析：列表接口 → 逐条详情取相关个股与板块 → 批量行情取涨跌幅。
+    列表接口 featured 本身不返回个股（未登录时 stocks 恒为空），详情接口才给。"""
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    rows = json_get(data, cfg.get("items_path", "data.messages"))
+    if not isinstance(rows, list):
+        return []
+    if cfg.get("limit"):
+        rows = rows[: cfg["limit"]]        # 先截断再逐条请求，不为不输出的条目白跑详情
+
+    tz = cfg.get("tz", "+0800")
+    link_base = cfg.get("link_base", "")
+    detail_tpl = cfg.get("detail_url", "")
+    max_n = cfg.get("max_stocks", 6)
+
+    items, symbols = [], []
+    for row in rows:
+        mid = str(row.get("id") or "")
+        if not mid:
+            continue
+        detail = (fetch_json(detail_tpl.replace("{id}", mid), cfg) if detail_tpl else None) or {}
+        stocks = detail.get("RelatedStocks") or detail.get("AllRelatedStocks") or []
+        symbols += [s.get("Symbol") for s in stocks if s.get("Symbol")]
+        plates = [b.get("Name") for b in (detail.get("BkjInfos") or []) if b.get("Name")]
+
+        meta = "栏目：" + ((row.get("main_subject") or {}).get("title") or "未分类").strip()
+        if plates:
+            meta += " · 板块：" + "、".join(plates[:3])
+
+        dt = ts_to_datetime(row.get("created_at"), tz)
+        items.append({
+            "link": link_base + mid,
+            "title": row.get("title") or "",
+            "meta": meta,
+            "stocks": "",
+            "date": str(row.get("created_at") or ""),
+            "pubDate": to_rfc822(dt, tz) if dt else "",
+            "_stocks": stocks,
+        })
+
+    quotes = fetch_quotes(symbols, cfg)
+    for it in items:
+        it["stocks"] = format_stock_line(it.pop("_stocks"), quotes, max_n)
+    if quotes:
+        print("      行情已补全 %d 只个股" % len(quotes))
+    return items
+
+
 def filter_excluded(items, cfg):
     """按配置剔除条目：cfg.exclude = {"field": 字段名, "values": [命中值...]}。
     字段值包含任一 values 即丢弃（如 status 为「失效」的解析接口）。未配置则原样返回。"""
@@ -258,6 +356,7 @@ PARSERS = {
     "seedog": parse_seedog,
     "generic": parse_generic,
     "json": parse_json,
+    "xuangutong": parse_xuangutong,
 }
 
 
@@ -279,6 +378,18 @@ def fetch(url, ua, timeout, headers=None):
         return raw.decode(enc, errors="replace")
     except LookupError:
         return raw.decode("utf-8", errors="replace")
+
+
+def fetch_json(url, cfg, label="详情"):
+    """按源配置取 JSON（沿用源级 UA 与请求头）。失败返回 None 并打印告警，不抛异常——
+    逐条补全属于「锦上添花」，单条失败不能让整源降级为空。"""
+    try:
+        text = fetch(url, cfg.get("_ua", "Mozilla/5.0"), cfg.get("_timeout", 20),
+                     cfg.get("headers"))
+        return json.loads(text)
+    except Exception as e:
+        print("      ⚠️  %s请求失败（%s）：%s" % (label, url, e))
+        return None
 
 
 def fetch_browser(url, ua, timeout, max_wait=40, wait_selector=None, settle=5):
@@ -473,7 +584,8 @@ def process_source(cfg, ua, timeout):
         print("  ⚠️  命中反爬挑战页（如 cdndefend/Cloudflare），无法获取真实内容，跳过。")
         return
 
-    items = parser(html, cfg)
+    # 注入 _ua/_timeout 供需要二次请求的解析器（如 xuangutong 的逐条详情）复用同一套网络参数
+    items = parser(html, dict(cfg, _ua=ua, _timeout=timeout))
     raw_count = len(items)
     items = filter_excluded(items, cfg)
     if len(items) != raw_count:

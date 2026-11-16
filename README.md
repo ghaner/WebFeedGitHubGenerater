@@ -31,7 +31,7 @@ WebFeedGitHubGenerater/
 | `yszzq_jiexi` | https://www.yszzq.com/ziyuan/jiexi/21_0_0_newstime_0.html | `generic`（已验证） | ✅ 正常，生成 `yszzq_jiexi.xml`（**11 条/页，已过滤「失效」接口**，含解析地址 / 收费 / 格式，标题旁标「赞助」） |
 | `cctv_jkzl` | https://tv.cctv.com/lm/jkzl/index.shtml（接口：`api.cntv.cn/NewVideo/getVideoListByColumn`） | `json`（已验证） | ✅ 正常，生成 `cctv_jkzl.xml`（**50 条**，含播出时间 `pubDate`、时长、节目简介、竖版海报） |
 | `kkys14` | https://www.kkys14.com/label/new.html | `generic` + cookie 直连 | ✅ 正常，生成 `kkys14.xml`（**24 条**，含竖版海报） |
-| `xuangutong` | https://xuangutong.com.cn/jingxuan（接口：`baoer-api.xuangubao.com.cn/api/v6/message/featured`） | `json`（已验证） | ✅ 正常，生成 `xuangutong.xml`（**100 条**，含栏目、发布时间） |
+| `xuangutong` | https://xuangutong.com.cn/jingxuan（接口：`baoer-api.xuangubao.com.cn/api/v6/message/featured`） | `xuangutong`（专用） | ✅ 正常，生成 `xuangutong.xml`（**100 条**，含栏目、板块、相关个股及涨跌幅、发布时间） |
 
 **kkys14 怎么通的**：该站有 cdndefend JS 算力挑战，直连会得到 HTTP 850 挑战页；但**挑战通过的浏览器会发放
 `cdndefend_js_cookie`，该值在有效期内可被 `urllib` 复用**，带上它直连即返回 200 与完整的**服务端渲染 HTML**
@@ -132,15 +132,25 @@ cookie 失效时 `cookie_recovery` 会尝试自动刷新并重连，但这是尽
 **xuangutong（选股通）的情况：SSR 页面 + 登录墙，但接口公开**（2026-11-16 实测）：
 `/jingxuan` 是 Nuxt SSR，主列表对未登录用户只渲染一句「登录后可查看全部内容」（`guest-login-prompt`），
 DOM 里一条数据都没有 —— 所以**不要**在这里找 `item_block`，也不要指望 `fetch:"browser"`。
-列表数据来自公开接口 `GET https://baoer-api.xuangubao.com.cn/api/v6/message/featured?subj_ids=<栏目ID,逗号分隔>&limit=100`，
-**无需登录、无挑战页**，返回 `data.messages[]`（`id` / `title` / `created_at` 秒级时间戳 / `main_subject.title` 栏目名）。
-- 条目链接是 `/article/<id>`，用字段级 `base` 拼：`{"key":"id","abs":true,"base":"https://xuangutong.com.cn/article/"}`；
-  访问时服务端 302 到 `/zzd/article/<id>`，浏览器无感。
+它由专用的 `parser:"xuangutong"` 处理，串起三个接口：
+
+| 用途 | 接口 | 是否需登录 |
+|---|---|---|
+| 列表 | `GET https://baoer-api.xuangubao.com.cn/api/v6/message/featured?subj_ids=<栏目ID,逗号分隔>&limit=100` | 否 |
+| 逐条详情（相关个股 `RelatedStocks`、板块 `BkjInfos`、摘要 `Summary`） | `GET https://baoer-api.xuangubao.com.cn/baoer_backend/api/pc/msg/<id>` | 否 |
+| 批量行情（涨跌幅 `px_change_rate`，单位 %） | `GET https://api-ddc-wscn.xuangubao.com.cn/market/real?fields=prod_name,px_change_rate&prod_code=<代码,逗号分隔>` | 否 |
+
+- **列表接口的 `stocks` 恒为空数组**（个股要登录才下发），所以个股必须走详情接口；详情接口约 0.14 秒/条，
+  100 条约 15 秒，实测连发 20 次无失败。行情接口一次能查上百个代码，全部个股只需 **1 次**请求。
+- 条目链接是 `/article/<id>`，用 `link_base` 拼；访问时服务端 302 到 `/zzd/article/<id>`，浏览器无感。
 - `limit` 实测上限 100，**超过（如 200）会回落成默认 20 条**，不要调大。
 - `subj_ids` 必须传且是真过滤（传不存在的 ID 返回 0 条）；本仓库用
   `679,581,779,517,781,983,894,821`（选股通早知道 / 脱水研报 / 盘中突发 / 脱水调研 / 涨价早知道 / 科创板早知道 / 闪电快评 / VIP）。
-  想收窄范围只留感兴趣的栏目 ID 即可。
-- **正文需登录**，故 RSS 只给标题、栏目与发布时间；文章详情接口 `msgView` 未登录返回 404，不做正文抓取。
+- `max_stocks`（默认 6）控制每条列出几只股票，超出显示「等 N 只」——「避雷早知道」单篇关联可达 52 只。
+- **涨跌幅是生成那一刻的快照**，不是实时行情。Actions 在每日零点（北京时间）跑，那时 A 股休市，
+  所以看到的是**上一交易日收盘**的涨跌幅；本机在盘中重跑则拿到盘中实时值。
+- **正文仍需登录**（`Content` 字段返回「对不起，您没有这篇文章的阅读权限」），故 RSS 不出正文。
+  详情接口的 `Summary` / `PreviewContent` 有公开摘要，需要时可在 `parse_xuangutong` 里顺手取。
 
 ## 五、本机使用
 - **预览**：双击 `seedog_rss.bat` → 生成并打开所有 `*.xml`。

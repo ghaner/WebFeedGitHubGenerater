@@ -8,7 +8,7 @@
   :root{
     --bg:#f6f7f9; --card:#fff; --ink:#1a1f27; --sub:#5b6472;
     --line:#e3e7ee; --ok:#0f7b46; --okbg:#e8f6ee; --warn:#8a5a00; --warnbg:#fdf3e2;
-    --acc:#1f5fbf;
+    --acc:#1f5fbf; --up:#c0271e; --down:#0a7d43;
   }
   *{box-sizing:border-box}
   body{margin:0;padding:32px 20px 60px;background:var(--bg);color:var(--ink);
@@ -30,7 +30,7 @@
   .tag{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:600}
   .tag.ok{background:var(--okbg);color:var(--ok)}
   .tag.warn{background:var(--warnbg);color:var(--warn)}
-  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px}
   .kpi div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
   .kpi b{display:block;font-size:20px;margin-bottom:2px}
   .kpi span{color:var(--sub);font-size:12.5px}
@@ -45,209 +45,186 @@
   .flow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:10px 0 2px;font-size:13.5px}
   .flow i{font-style:normal;background:#eef2f8;border:1px solid var(--line);border-radius:6px;padding:6px 10px}
   .flow s{text-decoration:none;color:var(--sub)}
+  .up{color:var(--up);font-weight:600}
+  .down{color:var(--down);font-weight:600}
+  .card-sample{background:#fafbfc;border:1px solid var(--line);border-radius:8px;padding:12px 14px;font-size:13.5px;line-height:1.75}
+  .card-sample p{margin:0}
+  .card-sample p+p{margin-top:6px}
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <h1>新增源 xuangutong · 选股通「精选」RSS 交付报告</h1>
-  <div class="meta">仓库 <code>WebFeedGitHubGenerater</code> ｜ 目标页 <code>https://xuangutong.com.cn/jingxuan</code> ｜ 验证时间 2026-11-16 11:50（北京时间）</div>
+  <div class="meta">仓库 <code>WebFeedGitHubGenerater</code> ｜ 目标页 <code>https://xuangutong.com.cn/jingxuan</code> ｜ 首版 2026-11-16 11:50 ／ 增补个股与涨跌幅 2026-11-16 12:05（北京时间）</div>
 
   <div class="kpi">
     <div><b>100 条</b><span>实测提取条目（真实接口数据）</span></div>
-    <div><b>100/100</b><span>link / pubDate / 栏目 三字段完整率</span></div>
-    <div><b>1 次</b><span>HTTP 请求拿全量，不用浏览器</span></div>
-    <div><b>0 依赖</b><span>无需 cookie、无需登录、无挑战页</span></div>
+    <div><b>94 / 100</b><span>带个股涨跌幅的条目</span></div>
+    <div><b>493 只</b><span>去重后补全行情的个股</span></div>
+    <div><b>3 个接口</b><span>列表 + 详情 + 行情，全部免登录</span></div>
   </div>
 
   <div class="card">
     <h2>一、结论</h2>
     <ul>
-      <li><b>源已加好并在真实数据上跑通</b>：<code>sources.json</code> 新增 <code>xuangutong</code>，
-          生成 <code>xuangutong.xml</code>，100 条、XML 良构、字段无缺失，覆盖
-          <b>2026-11-04 ~ 2026-11-16 11:11</b> 的精选内容。</li>
-      <li><b>没有走页面解析，走的是列表接口</b>：<code>/jingxuan</code> 虽是 Nuxt 服务端渲染，但「精选更新」列表
-          对未登录访客只渲染一句「登录后可查看全部内容」，<b>HTML 里一条数据都没有</b>。
-          列表数据由公开 JSON 接口提供，<b>无需登录</b>。</li>
-      <li><b>只改了 <code>parser:"json"</code> 的两处能力，其它源零影响</b>：新增
-          <code>date_ts</code>（秒级 Unix 时间戳 → <code>pubDate</code>）与字段级 <code>base</code>；
-          CCTV 源回归实测结构、字段完全一致。</li>
-      <li><span class="tag warn">限制</span> 文章<b>正文需登录</b>，故 RSS 只给标题、栏目与发布时间；
-          点开链接可正常阅读（服务端 302 到对应专题页，实测最终 200）。</li>
+      <li><b>源已上线并跑通</b>：<code>sources.json</code> 的 <code>xuangutong</code> 改用专用
+          <code>parser:"xuangutong"</code>，生成 <code>xuangutong.xml</code>，100 条、XML 良构，
+          覆盖 <b>2026-11-04 ~ 2026-11-16 11:11</b>。</li>
+      <li><b>每条现在带栏目、板块、相关个股与涨跌幅</b>：94 条有涨跌幅，6 条（脱水研报的周回顾／每日谈）
+          经核查是接口本身就不关联个股，不是抓取失败。</li>
+      <li><b>个股不在列表接口里</b>：<code>featured</code> 返回的 <code>stocks</code> 对未登录用户恒为空数组，
+          必须逐条调详情接口取 <code>RelatedStocks</code>；涨跌幅再由行情接口一次批量补齐。</li>
+      <li><span class="tag warn">注意</span> 涨跌幅是<b>生成那一刻的快照</b>。Actions 每日北京时间零点跑，
+          此时 A 股休市，看到的是<b>上一交易日收盘</b>的涨跌幅；本机盘中重跑才是实时值。</li>
     </ul>
   </div>
 
   <div class="card">
-    <h2>二、怎么判型的（先判型，再选型）</h2>
+    <h2>二、RSS 里现在长什么样</h2>
+    <div class="card-sample">
+      <p><b><a href="https://xuangutong.com.cn/article/1306459" target="_blank">3D打印：全球爆单！国产3D打印设备迎出海与产量双增，这一原材料成重要需求增量，这只A股为3D打印企业提供多款高分子改性塑料产品</a></b></p>
+      <p style="color:#888;font-size:13px;">栏目：选股通早知道 · 板块：3D打印</p>
+      <p style="color:#444;font-size:13px;">相关个股：国泰海通 601211.SS <span class="up">+0.06%</span>、国金证券 600109.SS <span class="up">+0.12%</span>、银禧科技 300221.SZ <span class="down">-1.64%</span>、机器人 300024.SZ <span class="down">-1.21%</span>、铂力特 688333.SS <span class="down">-5.82%</span></p>
+    </div>
+    <p style="font-size:13px;color:var(--sub);margin:12px 0 0;">
+      上面是阅读器渲染后的效果（涨跌颜色由阅读器决定，本报告为演示着色）。XML 里的 <code>&lt;description&gt;</code>
+      是纯文本加粗与链接，<b>没有依赖内联样式着色</b> —— 因为 <code>build_rss</code> 会对所有字段值做 XML 转义，
+      字段里塞 <code>&lt;span&gt;</code> 会被转义成文本，涨跌方向靠 <code>+</code> / <code>-</code> 符号表达。
+    </p>
+    <h3>关联股票较多时的截断</h3>
+    <div class="card-sample">
+      <p style="color:#444;font-size:13px;">相关个股：南卫股份 603880.SS <span class="down">-8.08%</span>、长园集团 600525.SS <span class="up">+0.51%</span>、天山股份 000877.SZ <span class="down">-0.68%</span>、沪电股份 002463.SZ <span class="down">-5.64%</span>、晶盛机电 300316.SZ <span class="down">-12.82%</span>、宁波东力 002164.SZ <span class="down">-6.24%</span>　等 52 只</p>
+    </div>
+    <p style="font-size:13px;color:var(--sub);margin:8px 0 0;">
+      「避雷早知道」单篇关联可达 52 只股票。默认每条列 <code>max_stocks=6</code> 只，末尾注明总数，
+      既保留信息量又不把 description 撑爆。
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>三、三个接口怎么串起来</h2>
     <div class="flow">
-      <i>curl 直连页面</i><s>→</s>
-      <i>HTTP 200 / 30KB，有 SSR 内容</i><s>→</s>
-      <i>但主列表处是 guest-login-prompt</i><s>→</s>
-      <i>换浏览器监听 XHR</i><s>→</s>
-      <i>锁定 featured 接口</i>
+      <i>featured 列表（1 次）</i><s>→</s>
+      <i>逐条详情取个股（100 次，约 15 秒）</i><s>→</s>
+      <i>行情批量查涨跌幅（1 次）</i><s>→</s>
+      <i>拼进 description</i>
     </div>
     <table>
-      <tr><th style="width:22%">观察</th><th>结论</th></tr>
+      <tr><th style="width:18%">用途</th><th>接口</th><th style="width:20%">关键字段</th></tr>
       <tr>
-        <td>页面 <code>&lt;html data-n-head-ssr&gt;</code>，body 里有完整导航与侧栏</td>
-        <td>Nuxt 服务端渲染，<b>不是纯 SPA 空壳</b>，所以先不必上 Playwright</td>
+        <td>列表</td>
+        <td><code>GET /api/v6/message/featured?subj_ids=…&amp;limit=100</code><br>
+            <span style="color:#5b6472;font-size:13px">baoer-api.xuangubao.com.cn</span></td>
+        <td><code>id</code> <code>title</code> <code>created_at</code> <code>main_subject.title</code></td>
       </tr>
       <tr>
-        <td>「精选更新」区域只有一个 <code>guest-login-prompt</code>，文案「登录后可查看全部内容」</td>
-        <td><b>登录墙</b>：DOM 里永远拿不到条目 —— 找 <code>item_block</code> 或换 <code>fetch:"browser"</code> 都是死路</td>
+        <td>逐条详情</td>
+        <td><code>GET /baoer_backend/api/pc/msg/&lt;id&gt;</code><br>
+            <span style="color:#5b6472;font-size:13px">baoer-api.xuangubao.com.cn</span></td>
+        <td><code>RelatedStocks</code>（Name+Symbol）<br><code>BkjInfos</code>（板块）<br><code>Summary</code>（公开摘要）</td>
       </tr>
       <tr>
-        <td>侧栏「原创热文」有 10 条 SSR 文章，但不是主列表</td>
-        <td>只能作为旁证（文章链接形如 <code>/article/&lt;id&gt;</code>），不足以当数据源</td>
-      </tr>
-      <tr>
-        <td>无头浏览器监听全部 XHR，看到 <code>baoer-api.xuangubao.com.cn</code> 的公开接口</td>
-        <td>确认存在公开接口层，改用 <code>parser:"json"</code> 直连接口</td>
-      </tr>
-    </table>
-    <div class="note">
-      <b>这个站没有反爬挑战</b>（既不是 Cloudflare 也不是 cdndefend），所以不需要 cookie 通道，
-      也不需要 <code>cookie_recovery</code>。真正的障碍只有登录墙，而登录墙挡的是 DOM、不挡接口。
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>三、使用的接口（已验证的实测参数）</h2>
-    <pre>GET https://baoer-api.xuangubao.com.cn/api/v6/message/featured
-      ?subj_ids=679,581,779,517,781,983,894,821
-      &amp;limit=100
-Referer: https://xuangutong.com.cn/jingxuan</pre>
-    <table>
-      <tr><th style="width:26%">要点</th><th>实测结果</th></tr>
-      <tr><td>是否需要登录</td><td><span class="tag ok">不需要</span> 裸 <code>urllib</code> 直连即返回 <code>{"code":20000}</code></td></tr>
-      <tr><td><code>limit</code> 上限</td><td><b>100</b>；传 200 会<b>回落成默认 20 条</b>（踩过，勿调大）</td></tr>
-      <tr><td><code>subj_ids</code></td><td>必传且<b>真过滤</b>：传不存在的 ID 返回 0 条</td></tr>
-      <tr><td>条目字段</td><td><code>id</code> / <code>title</code> / <code>created_at</code>（秒级时间戳）/ <code>main_subject.title</code>（栏目）</td></tr>
-      <tr><td>条目链接</td><td><code>https://xuangutong.com.cn/article/&lt;id&gt;</code>，服务端 302 → <code>/zzd/article/&lt;id&gt;</code>，浏览器无感</td></tr>
-      <tr><td>正文字段</td><td><code>summary</code> 与 <code>pc_image</code> 多为空；详情接口 <code>msgView</code> 未登录返回 <code>71404 Not Found</code></td></tr>
-    </table>
-    <h3>本仓库固定使用的 8 个栏目 ID</h3>
-    <table>
-      <tr><th>ID</th><th>栏目</th><th>ID</th><th>栏目</th></tr>
-      <tr><td><code>679</code></td><td>选股通早知道（含避雷早知道等子栏目）</td><td><code>781</code></td><td>涨价早知道</td></tr>
-      <tr><td><code>581</code></td><td>脱水研报</td><td><code>983</code></td><td>科创板早知道</td></tr>
-      <tr><td><code>779</code></td><td>盘中突发</td><td><code>894</code></td><td>闪电快评</td></tr>
-      <tr><td><code>517</code></td><td>脱水调研</td><td><code>821</code></td><td>VIP 专栏</td></tr>
-    </table>
-    <div class="note">
-      页面顶部的 5 个 tab（精选更新 / 早晚报 / 龙虎榜 / 公告精选 / 复盘）在未登录状态下点击同样触发登录墙，
-      其栏目 ID 只存在于需要懒加载的前端 chunk 里，未能离线取到。当前 8 个 ID 已覆盖「精选」流的主体内容
-      （100 条里 38 条脱水研报、25 条早知道、其余为互动精选与行业主题）。
-      如需收窄或补充栏目，只改 <code>sources.json</code> 里 <code>subj_ids=</code> 这一段即可。
-    </div>
-  </div>
-
-  <div class="card">
-    <h2>四、代码改动（两处，约 15 行，向后兼容）</h2>
-    <table>
-      <tr><th style="width:24%">改动</th><th>位置</th><th>作用</th></tr>
-      <tr>
-        <td><code>date_ts</code> 字段选项</td>
-        <td><code>src/generate_feed.py</code> · <code>parse_json()</code></td>
-        <td>把秒级 Unix 时间戳按 <code>tz</code> 换算成北京时间再写 <code>pubDate</code>。
-            必须显式换算：CI 跑在 UTC，若用本地时区会整体偏 8 小时</td>
-      </tr>
-      <tr>
-        <td>字段级 <code>base</code></td>
-        <td><code>src/generate_feed.py</code> · <code>parse_json()</code></td>
-        <td>与 <code>parser:"generic"</code> 行为对齐：<code>{"key":"id","abs":true,"base":".../article/"}</code>
-            即可把纯数字 ID 拼成详情链接</td>
-      </tr>
-      <tr>
-        <td>新增配置源</td>
-        <td><code>src/sources.json</code></td>
-        <td><code>xuangutong</code> 一条，含 <code>items_path</code>、字段映射与卡片模板</td>
+        <td>批量行情</td>
+        <td><code>GET /market/real?fields=prod_name,px_change_rate&amp;prod_code=…</code><br>
+            <span style="color:#5b6472;font-size:13px">api-ddc-wscn.xuangubao.com.cn</span></td>
+        <td><code>data.snapshot[代码] = [名称, 涨跌幅%]</code></td>
       </tr>
     </table>
     <div class="ok-note">
-      <b>回归验证：</b>重跑 <code>cctv_jkzl</code>（同样用 <code>parser:"json"</code> 但走 <code>date</code> 分支），
-      仍为 50 条、<code>pubDate</code> 格式不变、<code>link</code> 与简介字段齐全，结构零回归；
-      首条日期从 11-13 变为 11-15 是栏目本身出了新一期节目，不是代码变化。
+      <b>实测数据：</b>详情接口 0.13~0.15 秒/条，连发 20 次 <b>20/20 成功</b>，无 429 限速；
+      行情接口一次传 493 个代码仍正常返回。整个源生成约 16 秒，比原方案多 15 秒，
+      Actions 里完全可接受。
     </div>
-  </div>
-
-  <div class="card">
-    <h2>五、RSS 里长什么样</h2>
-    <pre>&lt;item&gt;
-  &lt;title&gt;3D打印：全球爆单！国产3D打印设备迎出海与产量双增……&lt;/title&gt;
-  &lt;link&gt;https://xuangutong.com.cn/article/1306459&lt;/link&gt;
-  &lt;pubDate&gt;Mon, 16 Nov 2026 08:35:44 +0800&lt;/pubDate&gt;
-  &lt;description&gt;&lt;![CDATA[
-    &lt;div&gt;&lt;p&gt;&lt;b&gt;&lt;a href="…/article/1306459"&gt;3D打印：全球爆单！…&lt;/a&gt;&lt;/b&gt;&lt;/p&gt;
-         &lt;p&gt;栏目：选股通早知道&lt;/p&gt;&lt;/div&gt;
-  ]]&gt;&lt;/description&gt;
-&lt;/item&gt;</pre>
-    <ul>
-      <li>条目按 <code>pubDate</code> 倒序，阅读器可直接按发布时间排序。</li>
-      <li>未放封面图：接口的 <code>pc_image</code> 大多为空，强行塞空 <code>src</code> 只会显示破图。</li>
-      <li>标题是站点原文的营销式长标题（最长 150 字），未截断，保证点开前能看清讲的是哪只股。</li>
-    </ul>
-  </div>
-
-  <div class="card">
-    <h2>六、需要你手动完成的操作清单</h2>
-    <ol>
-      <li><b>确认改动并推送</b>（本轮会话未推送到 GitHub）：
-        <pre>cd F:\Informatics\RSS\WebFeedGitHubGenerater
-git add src/generate_feed.py src/sources.json README.md xuangutong.xml test/test_one_source.py report/xuangutong_feed.html
-git commit -m "add source: xuangutong (选股通精选) via public JSON API; json parser: date_ts + field-level base"
-git push origin main</pre>
-        <span style="color:#5b6472;font-size:13.5px">或直接双击 <code>publish.bat</code>（它会先重新生成再提交推送）。</span>
-      </li>
-      <li><b>等 Pages 重建</b>：推送后约 40~90 秒，访问下列地址应能看到 XML：
-        <div class="url"><code>https://ghaner.github.io/WebFeedGitHubGenerater/xuangutong.xml</code></div>
-      </li>
-      <li><b>确认 Actions 已带上新源</b>：仓库 <b>Actions → Generate RSS Feeds</b>，下一次
-        每日零点（北京时间）自动运行，日志里应出现「处理源：xuangutong …… 提取到 100 条」。
-        想立刻验证可点 <b>Run workflow</b>。</li>
-      <li><b>订阅</b>：把上面的 URL 填进 Distill Web Monitor（Feed → GET）/ Feedly / Fluent Reader。
-        该源不需要配置任何 Secret。</li>
-    </ol>
     <div class="note">
-      <b>已存在的未提交改动</b>（上一轮遗留，非本次产生）：<code>README.md</code>、<code>cctv_jkzl.xml</code>、
-      <code>report/kkys14_probe_and_fix.html</code>、<code>report/skill_update_and_rename.html</code>。
-      上面的 <code>git add</code> 已按文件精确指定，不会把它们混进本次提交；如需一并提交请自行加入。
+      <b>坑一：列表接口的 <code>stocks</code> 是空的。</b> 不看详情接口会误以为「这站没有个股数据」。
+      <b>坑二：<code>RelatedStocks</code> 的 <code>Market</code> 字段恒为空字符串</b>，判断不了品种类型，
+      直接把 <code>Symbol</code> 丢给行情接口即可（ETF 也能查）。
+      <b>坑三：行情返回的是数组而非字典</b>，字段顺序由请求的 <code>fields</code> 决定，
+      必须用响应里的 <code>fields</code> 数组定位 <code>px_change_rate</code> 的下标，不能写死索引。
     </div>
   </div>
 
   <div class="card">
-    <h2>七、风险与后续可做的</h2>
+    <h2>四、代码改动</h2>
     <table>
-      <tr><th style="width:26%">风险</th><th>表现与对策</th></tr>
+      <tr><th style="width:26%">改动</th><th>内容</th></tr>
       <tr>
-        <td>接口变更 / 加鉴权</td>
-        <td>生成器提取 0 条时会<b>跳过该源并保留旧 feed</b>，订阅不中断；届时重新抓一次 XHR 即可。</td>
+        <td>新增 <code>parse_xuangutong()</code></td>
+        <td>约 60 行的专用解析器，串起列表 → 详情 → 行情三段；登记进 <code>PARSERS</code>。
+            详情请求失败不会抛异常，该条降级为「本文未标注个股」，整源不受影响。</td>
       </tr>
       <tr>
-        <td>每日一次刷新太慢</td>
-        <td>该站日内更新频繁（每小时数条）。若要更及时，可把 <code>generate.yml</code> 的
-            <code>cron</code> 改成每 2 小时一次（<code>0 */2 * * *</code>，UTC）。</td>
+        <td>新增 <code>format_stock_line()</code></td>
+        <td>把 <code>RelatedStocks</code> 拼成「名称 代码 ±x.xx%」，按 <code>max_stocks</code> 截断并注明总数</td>
       </tr>
       <tr>
-        <td>只想要某个栏目</td>
-        <td>把 <code>subj_ids</code> 收窄即可，例如只看研报就写 <code>subj_ids=581</code>。</td>
+        <td>新增 <code>fetch_quotes()</code> / <code>fetch_json()</code></td>
+        <td>行情批量查询与容错型 JSON 请求（沿用源级 UA／Referer）</td>
       </tr>
       <tr>
-        <td>想要正文摘要</td>
-        <td>需登录态 cookie 才能取，属于另一套方案（cookie 通道 + 逐篇抓取），会显著拉长生成时间，暂未做。</td>
+        <td><code>process_source()</code> 一行</td>
+        <td>给 parser 注入 <code>_ua</code>／<code>_timeout</code>，让需要二次请求的解析器复用同一套网络参数。
+            其它解析器忽略这两个键，行为不变。</td>
+      </tr>
+      <tr>
+        <td>配置项</td>
+        <td><code>link_base</code>／<code>detail_url</code>／<code>market_url</code>／<code>max_stocks</code>／<code>limit</code></td>
+      </tr>
+    </table>
+    <div class="ok-note">
+      <b>其它源零影响：</b><code>parse_json</code> 与 <code>generic</code>／<code>seedog</code> 一行未改
+      （上一版为其新增的 <code>date_ts</code> 与字段级 <code>base</code> 仍在，保留兼容）。
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>五、已知限制</h2>
+    <table>
+      <tr><th style="width:26%">限制</th><th>说明与对策</th></tr>
+      <tr>
+        <td>涨跌幅非实时</td>
+        <td>RSS 是静态文件，涨跌幅只能取生成瞬间。想更贴近盘中，可把 <code>generate.yml</code> 的
+            <code>cron</code> 调到交易时段内的多个时点（如 <code>30 2,6 * * 1-5</code>，UTC = 北京 10:30、14:30）。</td>
+      </tr>
+      <tr>
+        <td>6 条无个股</td>
+        <td>脱水研报的「周回顾／每日谈」在接口里 <code>RelatedStocks</code> 就是 <code>null</code>，属数据本身缺失。</td>
+      </tr>
+      <tr>
+        <td>正文仍要登录</td>
+        <td>详情接口的 <code>Content</code> 返回「对不起，您没有这篇文章的阅读权限」。
+            <code>Summary</code>／<code>PreviewContent</code> 是公开的，若想把摘要也放进 feed，
+            在 <code>parse_xuangutong</code> 里多取一个字段即可（约 2 行）。</td>
+      </tr>
+      <tr>
+        <td>生成耗时变长</td>
+        <td>从约 1 秒增至约 16 秒（100 次详情）。若嫌慢，把 <code>limit</code> 降到 40，
+            只补最近 40 条的个股。</td>
       </tr>
     </table>
   </div>
 
   <div class="card">
-    <h2>八、本次交付物</h2>
+    <h2>六、公网地址与运维</h2>
+    <ul>
+      <li>订阅地址：<span class="url"><code>https://ghaner.github.io/WebFeedGitHubGenerater/xuangutong.xml</code></span>
+          （本次改动推送后 2~3 分钟生效，可用 <code>?t=时间戳</code> 绕过 CDN 缓存立即验证）</li>
+      <li>Actions 每日北京时间零点自动刷新，<b>不需要任何 Secret</b>。</li>
+      <li>某次接口变更导致提取 0 条时，生成器跳过该源并保留旧 feed，订阅不中断。</li>
+      <li>本机手工刷新：<code>python test/test_one_source.py xuangutong</code>（只跑这一个源，不动其它 feed）。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>七、本次改动文件</h2>
     <table>
       <tr><th style="width:34%">文件</th><th>说明</th></tr>
-      <tr><td><code>src/sources.json</code></td><td>新增 <code>xuangutong</code> 源（含接口地址与字段映射）</td></tr>
-      <tr><td><code>src/generate_feed.py</code></td><td><code>parse_json</code> 支持 <code>date_ts</code> 与字段级 <code>base</code></td></tr>
-      <tr><td><code>xuangutong.xml</code></td><td>生成的 RSS（100 条），待推送后由 Pages 托管</td></tr>
-      <tr><td><code>test/test_one_source.py</code></td><td>单源测试脚本：<code>python test/test_one_source.py xuangutong</code></td></tr>
-      <tr><td><code>README.md</code></td><td>源清单表格 + 第四章新增「xuangutong 的接口与登录墙」说明</td></tr>
+      <tr><td><code>src/generate_feed.py</code></td><td>新增 <code>parse_xuangutong</code>、<code>format_stock_line</code>、<code>fetch_quotes</code>、<code>fetch_json</code>；<code>process_source</code> 注入网络参数</td></tr>
+      <tr><td><code>src/sources.json</code></td><td><code>xuangutong</code> 改用专用 parser，新增 4 个配置项，模板加个股行</td></tr>
+      <tr><td><code>xuangutong.xml</code></td><td>重新生成（100 条，含个股与涨跌幅）</td></tr>
+      <tr><td><code>README.md</code></td><td>源清单 + 第四章 xuangutong 三接口说明表</td></tr>
+      <tr><td><code>report/xuangutong_feed.html</code></td><td>本报告</td></tr>
     </table>
   </div>
 
