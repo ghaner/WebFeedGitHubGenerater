@@ -14,7 +14,7 @@ WebFeedGitHubGenerater/
 ├── src/
 │   ├── generate_feed.py             # 主程序（仅 Python 标准库，无需 pip install）
 │   └── sources.json                 # ★ 站点配置：新增网址只改这里
-├── *.xml                           # 生成的 RSS（seedog / yszzq / yszzq_api / yszzq_jiexi / cctv_jkzl / kkys14，已由 Pages 托管）
+├── *.xml                           # 生成的 RSS（seedog / yszzq / yszzq_api / yszzq_jiexi / cctv_jkzl / kkys14 / xuangutong，已由 Pages 托管）
 ├── test/                           # 调试与探测脚本（推导抓取手段用，不参与正式生成）
 ├── seedog_rss.bat                  # 本机一键生成并打开所有 *.xml（备用预览）
 ├── publish.bat                     # 本机生成 + git 提交 + 推送（备用刷新）
@@ -31,12 +31,14 @@ WebFeedGitHubGenerater/
 | `yszzq_jiexi` | https://www.yszzq.com/ziyuan/jiexi/21_0_0_newstime_0.html | `generic`（已验证） | ✅ 正常，生成 `yszzq_jiexi.xml`（**11 条/页，已过滤「失效」接口**，含解析地址 / 收费 / 格式，标题旁标「赞助」） |
 | `cctv_jkzl` | https://tv.cctv.com/lm/jkzl/index.shtml（接口：`api.cntv.cn/NewVideo/getVideoListByColumn`） | `json`（已验证） | ✅ 正常，生成 `cctv_jkzl.xml`（**50 条**，含播出时间 `pubDate`、时长、节目简介、竖版海报） |
 | `kkys14` | https://www.kkys14.com/label/new.html | `generic` + cookie 直连 | ✅ 正常，生成 `kkys14.xml`（**24 条**，含竖版海报） |
+| `xuangutong` | https://xuangutong.com.cn/jingxuan（接口：`baoer-api.xuangubao.com.cn/api/v6/message/featured`） | `json`（已验证） | ✅ 正常，生成 `xuangutong.xml`（**100 条**，含栏目、发布时间） |
 
-**kkys14 怎么通的**：该站有 cdndefend JS 算力挑战，直连会得到 HTTP 850 挑战页；但**挑战通过后发放的
-`cdndefend_js_cookie` 是静态值**（多轮独立会话取值一致），带上它 `urllib` 直连即返回 200 与完整的**服务端渲染 HTML**
+**kkys14 怎么通的**：该站有 cdndefend JS 算力挑战，直连会得到 HTTP 850 挑战页；但**挑战通过的浏览器会发放
+`cdndefend_js_cookie`，该值在有效期内可被 `urllib` 复用**，带上它直连即返回 200 与完整的**服务端渲染 HTML**
 （实测 1.06 秒 / 24 条，且不校验 UA）。所以这个源**不需要 Playwright、也不需要等 SPA 渲染**。
 站点另有反调试跳转（约 3.9 秒后跳到百度），这正是原先"取到 0 条"的真正原因；现在完全绕过 DOM，不受影响。
-cookie 若被站点轮换，`cookie_recovery` 会自动用浏览器刷新一次后重连（详见第六章）。
+**注意值会轮换**：2026-11-14 17:00 铸的值可用一小时以上，17:40 铸的新值直连被拒（850）。
+cookie 失效时 `cookie_recovery` 会尝试自动刷新并重连，但这是尽力而为；长期 850 需手工换值（见第六章）。
 
 ## 三、让你的阅读器拿到 URL（两步）
 
@@ -119,12 +121,26 @@ cookie 若被站点轮换，`cookie_recovery` 会自动用浏览器刷新一次�
 | `fields.*.key` | 该字段对应的 JSON 键（支持 `data.list.0.title` 这类点号路径） |
 | `fields.*.strip_tags` / `abs` | 同 `generic`：去 HTML 标签 / 用 `base` 补全相对链接 |
 | `fields.*.date` | 时间格式（`strptime` 语法）。命中后自动生成 `<pubDate>`，阅读器可按发布时间排序 |
+| `fields.*.date_ts` | `true` 表示该键是**秒级 Unix 时间戳**（如 `created_at`）。按 `tz` 换算后生成 `<pubDate>`，与运行机器的时区无关 |
 | `tz` | 上述时间所在时区，默认 `+0800`（北京时间），直接写入 RSS 的 `pubDate` |
 | `feed_link` | `<channel><link>` 指向的人类可读页面（不填则用 `url`，接口型源建议填） |
 
 **CCTV 栏目页怎么找接口与栏目 ID**：打开栏目页 → 查看源码里 `var topicID = 'TOPC…'`（如《健康之路》=`TOPC1451557646802924`）
 → 接口模板 `https://api.cntv.cn/NewVideo/getVideoListByColumn?id=<topicID>&n=50&sort=desc&p=<页码>&d=&mode=0&serviceId=tvcctv`。
 换栏目只改 `id`；`n` 控制条数（实测 50 可用），`sort=desc` 保证最新在前。该接口普通 `urllib` 直连即可，无需 Referer/浏览器。
+
+**xuangutong（选股通）的情况：SSR 页面 + 登录墙，但接口公开**（2026-11-16 实测）：
+`/jingxuan` 是 Nuxt SSR，主列表对未登录用户只渲染一句「登录后可查看全部内容」（`guest-login-prompt`），
+DOM 里一条数据都没有 —— 所以**不要**在这里找 `item_block`，也不要指望 `fetch:"browser"`。
+列表数据来自公开接口 `GET https://baoer-api.xuangubao.com.cn/api/v6/message/featured?subj_ids=<栏目ID,逗号分隔>&limit=100`，
+**无需登录、无挑战页**，返回 `data.messages[]`（`id` / `title` / `created_at` 秒级时间戳 / `main_subject.title` 栏目名）。
+- 条目链接是 `/article/<id>`，用字段级 `base` 拼：`{"key":"id","abs":true,"base":"https://xuangutong.com.cn/article/"}`；
+  访问时服务端 302 到 `/zzd/article/<id>`，浏览器无感。
+- `limit` 实测上限 100，**超过（如 200）会回落成默认 20 条**，不要调大。
+- `subj_ids` 必须传且是真过滤（传不存在的 ID 返回 0 条）；本仓库用
+  `679,581,779,517,781,983,894,821`（选股通早知道 / 脱水研报 / 盘中突发 / 脱水调研 / 涨价早知道 / 科创板早知道 / 闪电快评 / VIP）。
+  想收窄范围只留感兴趣的栏目 ID 即可。
+- **正文需登录**，故 RSS 只给标题、栏目与发布时间；文章详情接口 `msgView` 未登录返回 404，不做正文抓取。
 
 ## 五、本机使用
 - **预览**：双击 `seedog_rss.bat` → 生成并打开所有 `*.xml`。
@@ -135,8 +151,11 @@ cookie 若被站点轮换，`cookie_recovery` 会自动用浏览器刷新一次�
 ### 原理（2026-11-14 实测结论）
 - `/label/new.html` 是**服务端渲染**，不是 SPA：挑战通过后主文档直接返回完整 HTML（约 87KB、24 条 `a.v-item`）。
   监听全部网络请求只有 2 个 JSON（站点公告、广告位配置），**没有任何影片数据接口**。
-- 静态直连 → HTTP 850 挑战页；挑战通过后浏览器拿到 `cdndefend_js_cookie`，该值是**静态的**
-  （3 轮独立会话取值完全一致，`expires=-1`），带上它直连即 200，且换任意 UA 都有效。
+- 裸直连 → HTTP 850 挑战页；挑战通过后浏览器拿到 `cdndefend_js_cookie`，该值**在有效期内可被 `urllib` 复用**
+  （同一时段多轮会话取值一致，`expires=-1`），带上它直连即 200，且换任意 UA 都有效。
+- **但值会轮换，且新铸出的值不一定可用**：17:00 铸的 `75CB7DA5…` 一小时后仍在生效；17:40 铸的 `1B23136A…`
+  直连直接 850（同会话 `ctx.request.get()` 也 850，此时浏览器自身只拿到 1616 字节空白页）。
+  因此判断 cookie 能否用于直连，唯一标准是「拿它请求一次，200 且页内有条目」。
 - 站点有反调试跳转：约 **3.9 秒后页面自动跳往 `www.baidu.com`**。所以「等渲染后取 DOM」只有约 1 秒窗口，
   极易拿到百度页；走 cookie 直连则完全不受影响。这也是原先"提取 0 条"的真正原因（不是 SPA 未渲染）。
 
@@ -158,12 +177,15 @@ cookie **不写进仓库**，通过环境变量 `KKYS14_COOKIE` 注入（值形�
 > 环境变量缺失时日志会打印 `⚠️ 环境变量未设置：KKYS14_COOKIE`，并尝试用浏览器刷新 cookie；CI 未装 playwright 时该源被跳过、旧 feed 保留。
 
 ### cookie 失效了怎么换
-现象：日志出现 `⚠️ 直连结果无效（HTTP Error 850）`，随后自动刷新重连。若刷新也失败（例如未装 playwright），
-该源会被跳过、旧 `kkys14.xml` 保留，订阅不中断。更新只需两步：
-1. 浏览器打开 `https://www.kkys14.com/label/new.html`，等页面加载完；
+现象：日志出现 `⚠️ 直连结果无效（HTTP Error 850）`，随后自动刷新重连。**自愈不是保险**——
+它要求「浏览器还能过挑战」且「新铸出的值能被 urllib 复用」，两条都可能不成立（实测 17:40 铸的新值直连 850）。
+自愈失败时该源会被跳过、旧 `kkys14.xml` 保留，订阅不中断。手工更新三步：
+1. 浏览器打开 `https://www.kkys14.com/label/new.html`，等页面出内容；
 2. F12 → Application → Cookies → `https://www.kkys14.com` → 复制 `cdndefend_js_cookie` 的值，拼成
    `cdndefend_js_cookie=<值>`，写进本机 `src/local_secrets.json` 的 `KKYS14_COOKIE`；
-   云端则到 **Settings → Secrets → KKYS14_COOKIE** 更新为同一字符串。
+   云端则到 **Settings → Secrets → KKYS14_COOKIE** 更新为同一字符串；
+3. **立刻验证**：`curl -H "Cookie: cdndefend_js_cookie=<值>" "https://www.kkys14.com/label/new.html"`，
+   返回 200 且页内有 `class="v-item"` 才算换成功（只看到 200 不算，850 也是能收到响应的）。
 
 > 辅助脚本：`test/probe_kkys14_cookie_stability.py`（批量取 cookie 并校验一致性与可用性）、
 > `test/probe_kkys14_timeline.py`（复现页面跳转时序）、`test/verify_kkys14_pure_http.py`（验证纯 HTTP 通道）。

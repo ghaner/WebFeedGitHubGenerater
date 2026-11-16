@@ -162,6 +162,24 @@ def to_rfc822(dt, tz="+0800"):
     )
 
 
+def tz_offset(tz="+0800"):
+    """把 "+0800" / "-0500" 这类时区串换算成秒偏移。"""
+    sign = -1 if tz.startswith("-") else 1
+    return sign * (int(tz[1:3]) * 3600 + int(tz[3:5]) * 60)
+
+
+def ts_to_datetime(ts, tz="+0800"):
+    """UTC 秒级 Unix 时间戳 → 指定时区的 datetime（naive）。非数字返回 None。
+    接口给的 created_at 是秒级时间戳，与服务器本地时区无关，必须显式换算，
+    否则在 UTC 的 CI 环境里会整体偏 8 小时。"""
+    try:
+        num = float(ts)
+    except (TypeError, ValueError):
+        return None
+    utc = datetime.datetime.fromtimestamp(num, datetime.timezone.utc)
+    return (utc + datetime.timedelta(seconds=tz_offset(tz))).replace(tzinfo=None)
+
+
 def json_get(obj, path):
     """按 "data.list" / "data.list.0.title" 这种点号路径取嵌套值；取不到返回 None。"""
     cur = obj
@@ -182,8 +200,8 @@ def json_get(obj, path):
 
 def parse_json(text, cfg):
     """通用 JSON 接口解析：items_path 定位条目数组，fields 把 JSON 键映射成模板字段。
-    字段选项：key(JSON 键，支持点号路径) / strip_tags / abs(相对链接补 base) /
-             date(时间格式，如 "%Y-%m-%d %H:%M:%S"，额外生成 pubDate)。
+    字段选项：key(JSON 键，支持点号路径) / strip_tags / abs(相对链接补 base，可用字段级 base) /
+             date(strptime 格式时间) / date_ts(秒级 Unix 时间戳)，二者均额外生成 pubDate。
     站点有 XHR/JSON 接口时优先用它，比正则解析 HTML 稳得多。"""
     try:
         data = json.loads(text)
@@ -203,7 +221,7 @@ def parse_json(text, cfg):
             if fc.get("strip_tags"):
                 val = strip_tags(val)
             if fc.get("abs") and val and not val.startswith("http"):
-                val = base + val
+                val = (fc.get("base") or base) + val
             item[fname] = val
             if fc.get("date") and val:
                 try:
@@ -211,6 +229,9 @@ def parse_json(text, cfg):
                     item["pubDate"] = to_rfc822(dt, tz)
                 except ValueError:
                     item["pubDate"] = ""
+            if fc.get("date_ts") and val:
+                dt = ts_to_datetime(val, tz)
+                item["pubDate"] = to_rfc822(dt, tz) if dt else ""
         item.setdefault("pubDate", "")
         items.append(item)
     return items

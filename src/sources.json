@@ -113,6 +113,26 @@
         "cats":   {"pattern": "<div class=\"v-item-bottom\">\\s*<span>([^<]*)</span>", "group": 1, "strip_tags": true}
       },
       "template": "<div style=\"font-family:sans-serif;line-height:1.6;\"><a href=\"{link}\" target=\"_blank\"><img src=\"{poster}\" alt=\"{title}\" style=\"max-width:120px;float:left;margin:0 12px 8px 0;border-radius:6px;\"></a><p style=\"margin:0 0 6px;\"><b><a href=\"{link}\" target=\"_blank\">{title}</a></b></p><p style=\"margin:0 0 6px;color:#555;\">{meta}</p><p style=\"margin:0 0 6px;color:#888;\">{cats}</p><div style=\"clear:both;\"></div></div>"
+    },
+    {
+      "name": "xuangutong",
+      "parser": "json",
+      "note": "页面 /jingxuan 是 Nuxt SSR，但「精选更新」列表对未登录用户只渲染登录提示，DOM 里拿不到条目；列表数据由公开 JSON 接口提供（无需登录、无挑战页）。limit 上限 100，超过则回落默认 20。文章详情正文需登录，故只取标题、栏目与发布时间。",
+      "url": "https://baoer-api.xuangubao.com.cn/api/v6/message/featured?subj_ids=679,581,779,517,781,983,894,821&limit=100",
+      "headers": {"Referer": "https://xuangutong.com.cn/jingxuan"},
+      "feed_title": "选股通 精选更新",
+      "feed_desc": "选股通（xuangutong.com.cn）「精选」栏目最新内容：选股通早知道、脱水研报、盘中突发、脱水调研等系列，按发布时间倒序（本地生成）。",
+      "feed_link": "https://xuangutong.com.cn/jingxuan",
+      "ttl": 60,
+      "tz": "+0800",
+      "items_path": "data.messages",
+      "fields": {
+        "link":    {"key": "id", "abs": true, "base": "https://xuangutong.com.cn/article/"},
+        "title":   {"key": "title"},
+        "subject": {"key": "main_subject.title"},
+        "date":    {"key": "created_at", "date_ts": true}
+      },
+      "template": "<div style=\"font-family:sans-serif;line-height:1.6;\"><p style=\"margin:0;\"><b><a href=\"{link}\" target=\"_blank\">{title}</a></b></p><p style=\"margin:6px 0 0;color:#888;font-size:13px;\">栏目：{subject}</p></div>"
     }
   ]
 }

@@ -54,8 +54,9 @@
 <div class="card">
   <p><b>kkys14 没有任何影片 JSON 接口</b>，它是「服务端渲染 + cdndefend 反爬挑战」，<u>不是 SPA</u>。
   原先记录里"SPA 渲染未调通"的判断不成立。</p>
-  <p>但探测中发现一个更省事的通道：挑战通过后发放的 <code>cdndefend_js_cookie</code> 是<b>静态值</b>，
-  带上它用普通 <code>urllib</code> 直连就返回 200 和完整 HTML，<b>1.06 秒拿到 24 条</b>，完全不需要 Playwright。</p>
+  <p>但探测中发现一个更省事的通道：挑战通过后发放的 <code>cdndefend_js_cookie</code> 在有效期内<b>可被 <code>urllib</code> 复用</b>，
+  带上它直连就返回 200 和完整 HTML，<b>1.06 秒拿到 24 条</b>，完全不需要 Playwright。
+  （后续复核修正：该值<b>不是永久静态</b>，会随时间轮换，见 3.2 的复核结论。）</p>
   <p>原先提取 0 条的真实原因也查清了：页面在加载约 <b>3.9 秒</b>后被反调试脚本<b>自动跳转到 www.baidu.com</b>，
   而旧逻辑取 DOM 的时机正好在跳转之后，拿到的自然是百度页面。</p>
 </div>
@@ -84,15 +85,16 @@
 <table>
   <tr><th>验证项</th><th>结果</th></tr>
   <tr><td>cookie 名称 / 属性</td><td><code>cdndefend_js_cookie</code>，域 <code>www.kkys14.com</code>，<code>expires=-1</code>，非 HttpOnly，SameSite=Lax，值长 45</td></tr>
-  <tr><td>是否为静态值</td><td><span class="ok">是</span>，3 轮独立 browser context 取值完全一致</td></tr>
+  <tr><td>值是否稳定</td><td><span class="ok">同一时段内一致</span>，3 轮独立 browser context 取值相同；但 17:40 再取已轮换为新值（旧值仍有效）</td></tr>
   <tr><td>纯 urllib + cookie</td><td><span class="ok">200</span>，87,446 字节，24 条，耗时 1.06 秒，连续 3 次复核一致</td></tr>
   <tr><td>是否校验 UA</td><td><span class="ok">不校验</span>，Chrome / curl / Firefox-Mac / 无 UA / 仅 cookie 五种组合全部 200 + 24 条</td></tr>
   <tr><td>海报地址</td><td>页面 <code>src</code> 是占位图，真实封面在 <code>data-original</code>，需补 <code>https://vres.wkcyvs.cn</code>；抽验 HTTP 200，image/jpeg，207,685 字节</td></tr>
 </table>
 
 <div class="note">
-<b>未完全排除的风险：</b>cookie 是否绑定 IP 无法在本机证实。静态值 + 不校验 UA 说明校验很弱，GitHub Actions 上大概率有效，
-但首次云端运行需实测确认（见第五节步骤 3）。
+<b>遗留风险（复核后修正）：</b>cookie 是否绑定 IP 仍未在本机证实；更重要的是<b>值会轮换，且新铸出的值不一定能用于直连</b>
+（17:40 铸的 <code>1B23136A…</code> 直连 850）。所以「cookie 通道」成立的标准只有一条：
+<b>拿这个值请求一次，返回 200 且页内有条目</b>。换值时务必按第六章验证，别只看状态码。
 </div>
 
 <h2>三、代码与配置改动</h2>
@@ -119,12 +121,20 @@
 运行时从环境变量展开。本机由 <code>src/local_secrets.json</code>（已加入 .gitignore）自动注入；
 云端由 GitHub Actions Secret <code>KKYS14_COOKIE</code> 注入。环境变量缺失时日志会明确告警。</p>
 
-<h3>3.2 自愈逻辑（已验证）</h3>
+<h3>3.2 自愈逻辑（当日验证过一次，但不可靠）</h3>
 <pre>[测试] 已把 cookie 篡改为错误值
   🔑 使用自定义请求头直连...
       ⚠️  直连结果无效（HTTP Error 850: ），尝试用浏览器刷新 cookie...
       已用新 cookie 重连完成。
       提取到 24 条</pre>
+<div class="note">
+<b>后续复核推翻了「自愈可靠」这个结论（同日 17:40）：</b>
+同一台机器上再跑自愈，浏览器已拿不到真实内容（页面只剩 1616 字节空白），它铸出的新 cookie
+<code>1B23136A…</code> 被 <code>urllib</code> 直接拒绝（HTTP 850），同会话 <code>ctx.request.get()</code> 也是 850；
+而一小时前铸出的 <code>75CB7DA5…</code> 仍然有效（200 / 24 条）。<br>
+结论：<b>cookie 值会轮换，且「浏览器当前铸出的值」不一定可用</b>。自愈只能减少人工干预，不能当成不会断的保证。
+真正兜底是「该源被跳过、旧 feed 保留」，长期 850 时按第六章手工换值并验证。
+</div>
 
 <h2>四、全量回归结果</h2>
 <table>
