@@ -28,6 +28,14 @@ jobs:
         with:
           python-version: "3.x"
 
+      # seedog 源走 fetch:browser（Cloudflare 按 IP 信誉挑战，只有真实浏览器 JS 能过）。
+      # 仅这一个源需要浏览器；安装失败不阻断其它源，该源会自动跳过、保留旧 feed。
+      - name: Install Playwright (for browser-based sources)
+        continue-on-error: true
+        run: |
+          python -m pip install --quiet playwright
+          python -m playwright install --with-deps chromium
+
       - name: Run generator (best-effort; per-source failure is safe)
         continue-on-error: true
         env:
@@ -62,3 +70,45 @@ jobs:
             git commit -m "chore: refresh feeds (scheduled)"
             git push
           fi
+
+      # 停更告警：某源连续 N 天未成功生成（lastBuildDate 停在旧日期）时，
+      # 输出 ::warning:: 注解 + Job Summary，避免 workflow 全绿掩盖事实。
+      # 阈值可用仓库变量 STALE_DAYS 调整（默认 3 天）。不阻断流程。
+      - name: Check feeds freshness (stale alert)
+        env:
+          STALE_DAYS: ${{ vars.STALE_DAYS || '3' }}
+        run: |
+          python - <<'PY'
+          import glob, os, datetime, email.utils
+          days = int(os.environ.get("STALE_DAYS", "3"))
+          now = datetime.datetime.now(datetime.timezone.utc)
+          stale = []
+          for fn in sorted(glob.glob("*.xml")):
+              text = open(fn, encoding="utf-8").read()
+              marker = "<lastBuildDate>"
+              if marker not in text:
+                  continue
+              raw = text.split(marker, 1)[1].split("</lastBuildDate>", 1)[0]
+              try:
+                  built = email.utils.parsedate_to_datetime(raw)
+                  if built.tzinfo is None:
+                      built = built.replace(tzinfo=datetime.timezone.utc)
+                  age = (now - built).days
+              except Exception:
+                  continue
+              print(f"{fn}: last build {raw} ({age}d ago)")
+              if age >= days:
+                  stale.append((fn, raw, age))
+          summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          line = "### ⚠️ 停更告警\n\n以下 feed 连续未更新（阈值 %d 天）：\n\n" % days
+          for fn, raw, age in stale:
+              line += f"- **{fn}**：{raw}（{age} 天前）\n"
+              print(f"::warning::{fn} 已 {age} 天未更新（最后成功 {raw}），请检查抓取")
+          if stale:
+              print(line)
+              if summary:
+                  with open(summary, "a", encoding="utf-8") as f:
+                      f.write(line + "\n")
+          else:
+              print("全部 feed 均在 %d 天内更新，无停更。" % days)
+          PY

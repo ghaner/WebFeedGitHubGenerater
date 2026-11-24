@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>seedog.xml 停修复位 · 交付报告（2026-11-24）</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#fff; --ink:#1a1f27; --sub:#5b6472;
+    --line:#e3e7ee; --ok:#0f7b46; --okbg:#e8f6ee; --warn:#8a5a00; --warnbg:#fdf3e2;
+    --acc:#1f5fbf; --err:#b3261e; --errbg:#fdecea;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;padding:32px 20px 60px;background:var(--bg);color:var(--ink);
+    font:15px/1.7 -apple-system,"Segoe UI","Microsoft YaHei",sans-serif;}
+  .wrap{max-width:940px;margin:0 auto}
+  h1{font-size:24px;margin:0 0 6px;letter-spacing:.2px}
+  .meta{color:var(--sub);font-size:13px;margin-bottom:22px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+    padding:20px 22px;margin:0 0 16px}
+  h2{font-size:17px;margin:0 0 12px;padding-left:10px;border-left:4px solid var(--acc)}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--sub);font-weight:600;background:#fafbfc}
+  code{background:#f1f3f6;padding:1px 6px;border-radius:4px;font-size:13px;
+    font-family:Consolas,Monaco,monospace}
+  pre{background:#1e2430;color:#e6e9f0;padding:14px 16px;border-radius:8px;overflow:auto;
+    font:13px/1.6 Consolas,Monaco,monospace;margin:10px 0}
+  .tag{display:inline-block;padding:1px 9px;border-radius:999px;font-size:12px;font-weight:600}
+  .tag.ok{background:var(--okbg);color:var(--ok)}
+  .tag.warn{background:var(--warnbg);color:var(--warn)}
+  .tag.err{background:var(--errbg);color:var(--err)}
+  .kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+  .kpi div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .kpi b{display:block;font-size:20px;margin-bottom:2px}
+  .kpi span{color:var(--sub);font-size:12.5px}
+  ol,ul{margin:6px 0 0;padding-left:22px}
+  li{margin:5px 0}
+  .note{border-left:3px solid var(--warn);background:var(--warnbg);padding:10px 14px;
+    border-radius:0 8px 8px 0;color:#5a3d00;font-size:14px;margin-top:12px}
+  .good{border-left:3px solid var(--ok);background:var(--okbg);padding:10px 14px;
+    border-radius:0 8px 8px 0;color:#0b5330;font-size:14px;margin-top:12px}
+  a{color:var(--acc)}
+  .url{word-break:break-all}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <h1>seedog.xml 停修复位 · 交付报告</h1>
+  <div class="meta">仓库 <code>WebFeedGitHubGenerater</code> ｜ 2026-11-24 ｜ 方案 C（换抓取接口）+ D（停更告警）</div>
+
+  <div class="kpi">
+    <div><b>11-15</b><span>seedog.xml 最后更新日（停更起点）</span></div>
+    <div><b>20 条</b><span>修复后本地实测提取条目</span></div>
+    <div><b>✅</b><span>浏览器抓取本地端到端跑通</span></div>
+    <div><b>≥3 天</b><span>停更告警阈值（可配）</span></div>
+  </div>
+
+  <div class="card">
+    <h2>一、根因（已确认）</h2>
+    <ul>
+      <li><b>不是 GitHub Actions 停了</b>：11-16～11-24 每天定时与手动触发均 <code>success</code>，最近一次 11-24 的两次运行 <code>45314841230</code> / <code>45315085620</code> 均成功。</li>
+      <li><b>是 seedog.cc 的 Cloudflare 按 IP 信誉挑战</b>：本地与 CI 出口直连均 <code>HTTP 403 + Just a moment...</code>；公共代理出口（allorigins / codetabs / corsproxy）同样被挑战。生成器命中挑战特征后跳过该源、保留旧 feed。</li>
+      <li><b>Actions 为什么全绿</b>：生成器步骤设了 <code>continue-on-error: true</code>，单源被跳过不报错；XML 内容零变化 → 走「XML 无变化，跳过提交」分支，页面上完全看不出停更。</li>
+      <li>站点本身正常更新：修复时用浏览器抓到最新 20 条（首条「繁华落尽」），证明内容与解析规则都没问题。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>二、方案 C：seedog 改浏览器抓取（换接口，内容不变）</h2>
+    <p>探测结论：seedog <b>没有原生 RSS/API</b>（<code>/atom.xml</code>、<code>/feed.xml</code> 均 404，sitemap 被挑战），RSSHub 无路由，所有代理出口都被 CF 拦。<b>唯一可行通道是真实浏览器 JS</b>——Edge 与 Playwright Chromium 均一次通过（200 / 20 cover / 无挑战）。</p>
+    <table>
+      <tr><th>文件</th><th>改动</th><th>影响范围</th></tr>
+      <tr><td><code>src/sources.json</code></td><td>seedog 条目新增 <code>fetch:"browser"</code>、<code>wait_selector:".cover"</code>、<code>settle:2</code>，并加 note 说明</td><td>仅 seedog 一个源；其它源配置一字未动</td></tr>
+      <tr><td><code>.github/workflows/generate.yml</code></td><td>新增「Install Playwright」步骤（<code>pip install playwright</code> + <code>playwright install --with-deps chromium</code>），设 <code>continue-on-error</code></td><td>安装失败只让该源跳过，不影响其它源</td></tr>
+    </table>
+    <div class="good">内容、专用解析器 <code>parse_seedog</code>、订阅地址 <code>https://ghaner.github.io/WebFeedGitHubGenerater/seedog.xml</code> <b>全部未变</b>——你的阅读器无需任何改动。</div>
+  </div>
+
+  <div class="card">
+    <h2>三、方案 D：停更告警（不再「假成功」）</h2>
+    <p><code>.github/workflows/generate.yml</code> 末尾新增「Check feeds freshness」步骤：读每个 <code>*.xml</code> 的 <code>&lt;lastBuildDate&gt;</code>，若某源连续 <b>≥3 天</b> 未成功生成（说明被反爬/改版拦截、旧 feed 被保留），同时输出：</p>
+    <ul>
+      <li><code>::warning::</code> 注解 → Actions 步骤页直接可见黄色警告</li>
+      <li>Job Summary 表格 → 汇总每个源的「最后成功时间 / 距今天数」</li>
+    </ul>
+    <p>阈值走仓库变量 <code>STALE_DAYS</code>（默认 3）。告警不阻断流程、不影响订阅。</p>
+    <div class="note">副作用提示：首次跑 CI 时，若其它源也因当天抓取失败而停留在旧日期，会一起告警——这正是目的：让所有停更都显形，而不是只盯着 seedog。</div>
+  </div>
+
+  <div class="card">
+    <h2>四、实测证据（2026-11-24，真实数据）</h2>
+    <table>
+      <tr><th>验证项</th><th>结果</th></tr>
+      <tr><td>浏览器抓取 seedog.cc</td><td><span class="tag ok">通过</span> HTTP 200，20 个 <code>class="cover"</code>，无挑战页</td></tr>
+      <tr><td>解析 + 生成 XML</td><td><span class="tag ok">通过</span> process_source 输出「提取到 20 条 → 已写入 seedog.xml」</td></tr>
+      <tr><td>seedog.xml 校验</td><td><span class="tag ok">通过</span> XML 良构、20 item、首条「繁华落尽」、lastBuildDate = Tue, 24 Nov 2026 05:07:38 +0000</td></tr>
+      <tr><td>停更告警脚本</td><td><span class="tag ok">通过</span> 本地 7 个停更源全部正确触发 <code>::warning::</code></td></tr>
+      <tr><td>workflow YAML 语法</td><td><span class="tag ok">通过</span> PyYAML 解析成功，6 个步骤齐全</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>五、你需要做的（手动步骤清单）</h2>
+    <ol>
+      <li><b>推送改动到 GitHub</b>：本次改动已在工作区完成但未推送（本沙箱 push 时好时坏）。在本仓库目录执行：
+        <pre>git add src/sources.json .github/workflows/generate.yml README.md seedog.xml report/seedog_fix_20261124.html
+git commit -m "fix(seedog): 浏览器抓取绕开 CF 挑战 + 停更告警"
+git push origin main</pre>
+        若本机 push 失败，直接在你的终端重试即可（非本沙箱环境通常正常）。</li>
+      <li><b>等 CI 跑一次</b>：推送后到 <b>Actions → Generate RSS Feeds → Run workflow</b> 手动触发，确认 seedog 源打印「使用浏览器抓取…提取到 20 条」。（首次会多花 1～2 分钟装 Playwright。）</li>
+      <li><b>验证线上 feed</b>：40～90 秒后访问 <a class="url" href="https://ghaner.github.io/WebFeedGitHubGenerater/seedog.xml">https://ghaner.github.io/WebFeedGitHubGenerater/seedog.xml</a>，确认 <code>lastBuildDate</code> 变成当天且首条是「繁华落尽」。</li>
+      <li><b>（可选）调告警阈值</b>：仓库 Settings → Secrets and variables → Actions → Variables 新建 <code>STALE_DAYS</code>，填数字（如 <code>2</code> 或 <code>7</code>）。不设则默认 3 天。</li>
+      <li><b>（可选）本机备用刷新</b>：双击 <code>seedog_rss.bat</code>。注意本机 Chromium 需走系统代理时，脚本需自行配置；CI 无此问题。</li>
+    </ol>
+  </div>
+
+  <div class="card">
+    <h2>六、避坑记录</h2>
+    <ul>
+      <li>seedog 的 CF 是<b>按 IP 信誉</b>判定，不是 UA 问题——换 UA、加 header、走公共代理全部无效；只有真实浏览器 JS 能过。</li>
+      <li>本项目其它站（yszzq / cctv / xuangutong / kkys14）走直连或 cookie，<b>不要</b>因为 seedog 改用浏览器就给所有源都加 <code>fetch:browser</code>——会平白拖慢整条流水线。</li>
+      <li>workflow 的 Playwright 安装步骤设了 <code>continue-on-error</code>：装不上时 seedog 会跳过、保留旧 feed，此时 D 的告警会在 3 天后提醒你，不会静默。</li>
+    </ul>
+  </div>
+
+</div>
+</body>
+</html>

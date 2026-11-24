@@ -25,13 +25,17 @@ WebFeedGitHubGenerater/
 ## 二、当前已配置的源（sources.json）
 | name | 网址 | parser | 状态 |
 |---|---|---|---|
-| `seedog` | https://seedog.cc/?order=update | `seedog`（专用，已验证） | ✅ 正常，生成 `seedog.xml`（20 条） |
+| `seedog` | https://seedog.cc/?order=update | `seedog`（专用）+ `fetch:browser` | ✅ 正常，生成 `seedog.xml`（20 条；2026-11-24 起改浏览器抓取，见下） |
 | `yszzq` | https://www.yszzq.com/ziyuan/web/19_0_0_0_newstime_0.html | `generic`（已验证） | ✅ 正常，生成 `yszzq.xml`（24 条，资源站官网列表） |
 | `yszzq_api` | https://www.yszzq.com/ziyuan/api/20_0_0_0_newstime_0.html | `generic`（已验证） | ✅ 正常，生成 `yszzq_api.xml`（**10 条/页，已过滤「失效」接口**，标题旁以灰色小标签标「赞助」） |
 | `yszzq_jiexi` | https://www.yszzq.com/ziyuan/jiexi/21_0_0_newstime_0.html | `generic`（已验证） | ✅ 正常，生成 `yszzq_jiexi.xml`（**11 条/页，已过滤「失效」接口**，含解析地址 / 收费 / 格式，标题旁标「赞助」） |
 | `cctv_jkzl` | https://tv.cctv.com/lm/jkzl/index.shtml（接口：`api.cntv.cn/NewVideo/getVideoListByColumn`） | `json`（已验证） | ✅ 正常，生成 `cctv_jkzl.xml`（**50 条**，含播出时间 `pubDate`、时长、节目简介、竖版海报） |
 | `kkys14` | https://www.kkys14.com/label/new.html | `generic` + cookie 直连 | ✅ 正常，生成 `kkys14.xml`（**24 条**，含竖版海报） |
 | `xuangutong` | https://xuangutong.com.cn/jingxuan（接口：`baoer-api.xuangubao.com.cn/api/v6/message/featured`） | `xuangutong`（专用） | ✅ 正常，生成 `xuangutong.xml`（**100 条**，含栏目、板块、相关个股及涨跌幅、发布时间） |
+
+**seedog 怎么通的（2026-11-24 修复）**：该站没有原生 RSS/API，Cloudflare **按 IP 信誉**挑战——本地与 CI 出口直连均 403「Just a moment...」，公共代理（allorigins/codetabs/corsproxy）出口同样被挑战，所有非浏览器手段都拿不到。真实浏览器（Edge/Chromium）JS **一次即过**（实测 200、20 条 cover、无挑战）。因此 `sources.json` 给 seedog 单独加了 `"fetch": "browser"`（只这一个源开浏览器，其它源不受影响），workflow 增加一步安装 Playwright。内容、解析规则、订阅地址 **均未改变**。
+
+**停更告警（2026-11-24 新增）**：`generate.yml` 末尾有「Check feeds freshness」步骤，读每个 `*.xml` 的 `lastBuildDate`，若某源连续 **≥3 天**未成功生成（说明被反爬/改版拦截、旧 feed 被保留），就在 Actions 页输出 `⚠️` 警告注解和 Job Summary 表格——不再让 workflow「全绿」掩盖 feed 停更。阈值可用仓库变量 `STALE_DAYS` 调整（Settings → Secrets and variables → Actions → Variables）。告警**不阻断**流程、不影响订阅。
 
 **kkys14 怎么通的**：该站有 cdndefend JS 算力挑战，直连会得到 HTTP 850 挑战页；但**挑战通过的浏览器会发放
 `cdndefend_js_cookie`，该值在有效期内可被 `urllib` 复用**，带上它直连即返回 200 与完整的**服务端渲染 HTML**
@@ -52,7 +56,8 @@ cookie 失效时 `cookie_recovery` 会尝试自动刷新并重连，但这是尽
 
 ### 步骤 2：保持更新（★ GitHub Action 自动完成）
 无需任何手动操作：`generate.yml` 每 **日零点（北京时间，即 UTC 16:00）** 自动遍历所有启用源 → 抓取 → 重新生成各自 `*.xml` → 提交推送。
-- 若某次被反爬拦截（命中挑战页或提取 0 条），脚本**不覆盖**该 feed，保留上一次成功结果，订阅不中断。
+- 该流程会先安装 Playwright + Chromium（供 seedog 的 `fetch:browser` 使用；安装失败只影响该源，其它源照常）。
+- 若某次被反爬拦截（命中挑战页或提取 0 条），脚本**不覆盖**该 feed，保留上一次成功结果，订阅不中断；连续停更 ≥3 天会在 Actions 页告警（见第二章）。
 - 周期在 `generate.yml` 的 `cron: "0 16 * * *"`（标准 cron，**UTC**）调整；若想改回 UTC 零点则写 `0 0 * * *`，想改回北京时间零点则写 `0 16 * * *`。
 - 可在 **Actions → Generate RSS Feeds → Run workflow** 手动立即刷新。
 
@@ -84,7 +89,7 @@ cookie 失效时 `cookie_recovery` 会尝试自动刷新并重连，但这是尽
   - `"browser"`：Playwright 无头浏览器，能跑 JS 过 cdndefend / Cloudflare 挑战、并等待 SPA 渲染完再取 HTML；
     较慢，需要本机或 CI 先装 `pip install playwright && python -m playwright install chromium`，
     并可配 `wait_selector`（等某元素出现）、`settle`（额外稳定秒数）、`limit`（最多取几条）。
-    注意：`generate.yml` **当前没有**安装 Playwright 的步骤（现有源都走 http/json），若启用 browser 源需自行加装。
+    `generate.yml` 已含安装步骤（`Install Playwright`），browser 源可直接启用。
 - `limit`：只保留前 N 条（首页常混入推荐位/专题位，用它控制条目数）。
 - 源级 `headers`：自定义请求头，如 `{"Cookie": "cdndefend_js_cookie=..."}`。用于「挑战页发放静态 cookie 后即可直连」的站点，不填则不发额外头（行为与原来一致）。
 - `cookie_recovery` / `cookie_name` / `cookie_wait`：cookie 自愈开关与参数，见第六章。

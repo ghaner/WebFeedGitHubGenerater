@@ -5,6 +5,10 @@
     {
       "name": "seedog",
       "parser": "seedog",
+      "note": "Cloudflare 按 IP 信誉挑战：本地/CI 出口直连均 403 挑战页，真实浏览器 JS 一次即过（实测 20 条）。改用 fetch:browser 只对本源开浏览器，内容、解析规则、订阅地址不变。",
+      "fetch": "browser",
+      "wait_selector": ".cover",
+      "settle": 2,
       "url": "https://seedog.cc/?order=update",
       "base": "https://seedog.cc",
       "feed_title": "SeedHub 最近更新（影视&动漫）",
