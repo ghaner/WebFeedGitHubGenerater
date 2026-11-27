@@ -5,8 +5,14 @@
     <link>https://www.yszzq.com/ziyuan/jiexi/21_0_0_newstime_0.html</link>
     <description>影视站长圈（yszzq.com）影视解析接口列表，按「最新排序」的 RSS 订阅源（本地生成）。</description>
     <language>zh-CN</language>
-    <lastBuildDate>Thu, 26 Nov 2026 00:02:16 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 27 Nov 2026 00:23:27 +0000</lastBuildDate>
     <ttl>60</ttl>
+    <item>
+      <title>吉吉资源网视频解析接口</title>
+      <link>https://www.yszzq.com/ziyuan/jiexi/277.html</link>
+      <guid>https://www.yszzq.com/ziyuan/jiexi/277.html</guid>
+      <description><![CDATA[<div style="font-family:sans-serif;line-height:1.6;"><p style="margin:0 0 6px;"><b><a href="https://www.yszzq.com/ziyuan/jiexi/277.html" target="_blank">吉吉资源网视频解析接口</a></b><span style="color:#888;font-size:12px;"> </span></p><p style="margin:0 0 6px;color:#555;">解析地址：<code>https://svip.jjzy-jx.com/?url=</code></p><p style="margin:0;color:#888;">免费 · m3u8切片</p></div>]]></description>
+    </item>
     <item>
       <title>母鸡资源站解析接口</title>
       <link>https://www.yszzq.com/ziyuan/jiexi/276.html</link>
@@ -72,12 +78,6 @@
       <link>https://www.yszzq.com/ziyuan/jiexi/263.html</link>
       <guid>https://www.yszzq.com/ziyuan/jiexi/263.html</guid>
       <description><![CDATA[<div style="font-family:sans-serif;line-height:1.6;"><p style="margin:0 0 6px;"><b><a href="https://www.yszzq.com/ziyuan/jiexi/263.html" target="_blank">优质资源库DP播放器解析接口</a></b><span style="color:#888;font-size:12px;"> </span></p><p style="margin:0 0 6px;color:#555;">解析地址：<code>https://vip.zykbf.com/?url=</code></p><p style="margin:0;color:#888;">免费 · 全能通用</p></div>]]></description>
-    </item>
-    <item>
-      <title>黑料资源网无广告解析接口</title>
-      <link>https://www.yszzq.com/ziyuan/jiexi/262.html</link>
-      <guid>https://www.yszzq.com/ziyuan/jiexi/262.html</guid>
-      <description><![CDATA[<div style="font-family:sans-serif;line-height:1.6;"><p style="margin:0 0 6px;"><b><a href="https://www.yszzq.com/ziyuan/jiexi/262.html" target="_blank">黑料资源网无广告解析接口</a></b><span style="color:#888;font-size:12px;"> 赞助</span></p><p style="margin:0 0 6px;color:#555;">解析地址：<code>https://www.heiliaozyjx.com/?url=</code></p><p style="margin:0;color:#888;">免费 · m3u8切片</p></div>]]></description>
     </item>
   </channel>
 </rss>

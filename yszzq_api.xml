@@ -5,8 +5,14 @@
     <link>https://www.yszzq.com/ziyuan/api/20_0_0_0_newstime_0.html</link>
     <description>影视站长圈（yszzq.com）影视资源采集接口列表，按「最新采集」排序的 RSS 订阅源（本地生成，已自动过滤「失效」接口）。</description>
     <language>zh-CN</language>
-    <lastBuildDate>Thu, 26 Nov 2026 00:02:15 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 27 Nov 2026 00:23:27 +0000</lastBuildDate>
     <ttl>60</ttl>
+    <item>
+      <title>吉吉资源采集接口</title>
+      <link>https://www.yszzq.com/ziyuan/api/255.html</link>
+      <guid>https://www.yszzq.com/ziyuan/api/255.html</guid>
+      <description><![CDATA[<div style="font-family:sans-serif;line-height:1.6;"><p style="margin:0 0 6px;"><b><a href="https://www.yszzq.com/ziyuan/api/255.html" target="_blank">吉吉资源采集接口</a></b><span style="color:#888;font-size:12px;"> </span></p><p style="margin:0 0 6px;color:#555;">支持 CMS：苹果cms / 海洋cms / 飞飞cms / 赞片CMS / API</p><p style="margin:0;color:#888;">分类：电影 / 电视剧 / 动漫 / 综艺</p></div>]]></description>
+    </item>
     <item>
       <title>星夜资源站采集接口</title>
       <link>https://www.yszzq.com/ziyuan/api/254.html</link>
@@ -60,12 +66,6 @@
       <link>https://www.yszzq.com/ziyuan/api/243.html</link>
       <guid>https://www.yszzq.com/ziyuan/api/243.html</guid>
       <description><![CDATA[<div style="font-family:sans-serif;line-height:1.6;"><p style="margin:0 0 6px;"><b><a href="https://www.yszzq.com/ziyuan/api/243.html" target="_blank">无水印资源网采集接口</a></b><span style="color:#888;font-size:12px;"> </span></p><p style="margin:0 0 6px;color:#555;">支持 CMS：苹果cms / 海洋cms / API</p><p style="margin:0;color:#888;">分类：电影 / 电视剧 / 动漫 / 短视频</p></div>]]></description>
-    </item>
-    <item>
-      <title>影剧资源网采集接口</title>
-      <link>https://www.yszzq.com/ziyuan/api/240.html</link>
-      <guid>https://www.yszzq.com/ziyuan/api/240.html</guid>
-      <description><![CDATA[<div style="font-family:sans-serif;line-height:1.6;"><p style="margin:0 0 6px;"><b><a href="https://www.yszzq.com/ziyuan/api/240.html" target="_blank">影剧资源网采集接口</a></b><span style="color:#888;font-size:12px;"> 赞助</span></p><p style="margin:0 0 6px;color:#555;">支持 CMS：苹果cms / 海洋cms / 飞飞cms / 马克斯CMS / 赞片CMS / 赤兔CMS</p><p style="margin:0;color:#888;">分类：电影 / 电视剧 / 动漫 / 综艺 / 体育 / 短视频 / 新闻</p></div>]]></description>
     </item>
   </channel>
 </rss>
